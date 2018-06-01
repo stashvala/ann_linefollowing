@@ -1,4 +1,5 @@
 from ev3dev.ev3 import *
+from time import time, sleep
 import csv
 
 # GYRO SENSOR
