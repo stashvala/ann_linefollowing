@@ -12,11 +12,11 @@ motor_left = LargeMotor('outB')
 motor_right = LargeMotor('outD')
 
 # COLOR SENSOR
-color_sensor_left = ColorSensor()
-assert color_sensor_left.connected, "Connect a color sensor to any sensor port"
+color_sensor_left = ColorSensor('in1')
+assert color_sensor_left.connected, "Connect LEFT color sensor to sensor port 1"
 
-color_sensor_right = ColorSensor()
-assert color_sensor_right.connected, "Connect a RIGHT color sensor to sensor port 3"
+color_sensor_right = ColorSensor('in2')
+assert color_sensor_right.connected, "Connect RIGHT color sensor to sensor port 2"
 
 color_sensor_left.mode = 'COL-REFLECT'
 color_sensor_right.mode = 'COL-REFLECT'

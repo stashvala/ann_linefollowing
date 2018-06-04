@@ -15,11 +15,11 @@ from time import sleep
 # motor_right = LargeMotor('outD')
 #
 # # COLOR SENSOR
-# color_sensor_left = ColorSensor()
-# assert color_sensor_left.connected, "Connect a color sensor to any sensor port"
+# color_sensor_left = ColorSensor('in1')
+# assert color_sensor_left.connected, "Connect LEFT color sensor to sensor port 1"
 #
-# # color_sensor_right = ColorSensor('in3')
-# # assert color_sensor_right.connected, "Connect a RIGHT color sensor to sensor port 3"
+# color_sensor_right = ColorSensor('in2')
+# assert color_sensor_right.connected, "Connect RIGHT color sensor to sensor port 2"
 #
 # color_sensor_left.mode = 'COL-REFLECT'
 # # color_sensor_right.mode = 'COL-REFLECT'
@@ -30,16 +30,20 @@ from time import sleep
 
 class LineFollowing:
 
-    def __init__(self, hidden_layer_sizes=(5, 5), learning_rate=0.0001, epochs=20000, batch_size=128):
-        self.MLP = MLPRegressor(hidden_layer_sizes, learning_rate_init=learning_rate,
-                                max_iter=epochs, batch_size=batch_size, verbose=True)
+    MOTORS = [2, 3]
+    COLOR_SENSORS = [4, 5]
+
+    def __init__(self, hidden_layer_sizes=(100, ), solver="lbfgs", learning_rate=0.0001, epochs=20000, batch_size=256):
+        self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=learning_rate, shuffle=False,
+                                activation="logistic", max_iter=epochs, batch_size=batch_size, verbose=True)
         pass
 
     def train(self, train_csv, model_path="model/mlp.p"):
-        data = np.genfromtxt(train_csv, delimiter=',')
+        data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
 
-        X = data[1:, 4].reshape(-1, 1)  # remove if more features
-        y = data[1:, [2, 3]]
+        X = data[:, self.COLOR_SENSORS]
+        X /= 100  # normalize reflected color
+        y = data[:, self.MOTORS]
 
         data = None  # free memory if python wills it
 
