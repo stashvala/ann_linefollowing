@@ -11,7 +11,7 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
 
-    def __init__(self, hidden_layer_sizes=(15, ), solver="adam", lr=0.00055, epochs=20000, batch_size=32):
+    def __init__(self, hidden_layer_sizes=(15, 25), solver="adam", lr=0.00055, epochs=20000, batch_size=32):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
                                 learning_rate='adaptive', shuffle=False, activation="logistic", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
@@ -91,5 +91,5 @@ class LineFollowing:
 
 if __name__ == '__main__':
     model = LineFollowing()
-    model.train("data/electrical_tape.csv", "model/validation.p")
+    model.train("data/electrical_tape.csv", "model/val_multiple.p")
     #model.run("model/mlp.p")
