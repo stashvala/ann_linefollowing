@@ -5,14 +5,16 @@ import numpy as np
 from sklearn.neural_network import MLPRegressor
 from ev3dev.ev3 import *
 
+
 class LineFollowing:
 
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
 
-    def __init__(self, hidden_layer_sizes=(100, ), solver="lbfgs", learning_rate=0.0001, epochs=20000, batch_size=256):
-        self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=learning_rate, shuffle=False,
-                                activation="logistic", max_iter=epochs, batch_size=batch_size, verbose=True)
+    def __init__(self, hidden_layer_sizes=(10,), solver="adam", lr=0.001, epochs=20000, batch_size=256):
+        self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
+                                learning_rate='adaptive', shuffle=False, activation="logistic", max_iter=epochs,
+                                batch_size=batch_size, verbose=True)
 
         # Ev3 inputs
         self.gs = None
@@ -48,11 +50,10 @@ class LineFollowing:
     def train(self, train_csv, model_path="model/mlp.p"):
         data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
 
-        X = data[:, self.COLOR_SENSORS]
-        X /= 100  # normalize reflected color
-        y = data[:, self.MOTORS]
-
-        data = None  # free memory if python wills it
+        # shift color inputs so that previous motor speed is input for current color
+        X = np.hstack((data[:-1, self.MOTORS], data[1:, self.COLOR_SENSORS]))
+        X[:, [-2, -1]] /= 100  # normalize reflected color
+        y = data[1:, self.MOTORS]  # shift motor outputs
 
         self.MLP.fit(X, y)
 
@@ -67,13 +68,18 @@ class LineFollowing:
         self.setup_ev3()
 
         while not self.btn.any():  # While no button is pressed.
-            left_color_intensity = self.color_sensor_left.value() / 100
-            right_color_intensity = self.color_sensor_right.value() / 100
+            left_color_intensity = self.color_sensor_left.value() / 100.
+            right_color_intensity = self.color_sensor_right.value() / 100.
 
-            X = np.array([left_color_intensity, right_color_intensity])
+            # TODO: maybe remember prev predicted speed and use that
+            curr_speed_left, curr_speed_right = self.motor_left.speed, self.motor_right.speed
+            X = np.array([curr_speed_left, curr_speed_right, left_color_intensity, right_color_intensity])
+            print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
+                                                                     left_color_intensity, right_color_intensity))
 
             speed_left, speed_right = self.MLP.predict(X)
-            print(left_color_intensity, right_color_intensity, speed_left, speed_right)
+
+            print("output: {:3.2f}\t{:3.2f}".format(speed_left, speed_right))
 
             self.motor_left.run_forever(speed_sp=speed_left)
             self.motor_right.run_forever(speed_sp=speed_right)
@@ -84,5 +90,5 @@ class LineFollowing:
 
 if __name__ == '__main__':
     model = LineFollowing()
-    # model.train("data/electrical_tape.csv")
-    model.run("model/mlp.p")
+    model.train("data/electrical_tape.csv", "model/motors_added.p")
+    #model.run("model/mlp.p")
