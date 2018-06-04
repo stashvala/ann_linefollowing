@@ -11,9 +11,9 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
 
-    def __init__(self, hidden_layer_sizes=(15, 25), solver="adam", lr=0.00055, epochs=20000, batch_size=32):
+    def __init__(self, hidden_layer_sizes=(15, 25), solver="adam", lr=0.00005, epochs=1000, batch_size=32):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
-                                learning_rate='adaptive', shuffle=False, activation="logistic", max_iter=epochs,
+                                learning_rate='adaptive', shuffle=False, activation="relu", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
 
         # Ev3 inputs
