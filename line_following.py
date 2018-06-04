@@ -69,5 +69,5 @@ class LineFollowing:
 
 if __name__ == '__main__':
     model = LineFollowing()
-    model.train("data/electrical_tape.csv")
-    #model.run()
+    # model.train("data/electrical_tape.csv")
+    model.run("model/mlp")
