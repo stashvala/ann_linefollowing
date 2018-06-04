@@ -15,15 +15,14 @@ motor_right = LargeMotor('outD')
 color_sensor_left = ColorSensor()
 assert color_sensor_left.connected, "Connect a color sensor to any sensor port"
 
-# color_sensor_right = ColorSensor('in3')
-# assert color_sensor_right.connected, "Connect a RIGHT color sensor to sensor port 3"
+color_sensor_right = ColorSensor()
+assert color_sensor_right.connected, "Connect a RIGHT color sensor to sensor port 3"
 
 color_sensor_left.mode = 'COL-REFLECT'
-# color_sensor_right.mode = 'COL-REFLECT'
+color_sensor_right.mode = 'COL-REFLECT'
 
 # BUTTON
 btn = Button()
-
 
 # assert btn.connected, "Connect a button to sensor port 4"
 
@@ -62,11 +61,11 @@ def read_track(id=0):
 
         # COLOR SENSOR LIGHT INTENSITY
         left_color_intensity = color_sensor_left.value()
-        # right_color_intensity = color_sensor_right.value()
+        right_color_intensity = color_sensor_right.value()
 
         track_data.append(
             [id, angle, left_motor_speed, right_motor_speed,
-             left_color_intensity])  # , right_color_intensity))
+             left_color_intensity, right_color_intensity])
 
     Sound.beep().wait()
 
@@ -89,7 +88,7 @@ while True:
 # WRITE TO CSV
 file_name = "data/" + input('CSV file: ') + '.csv'
 with open(file_name, 'w') as csv_file:
-    header = ["track_id", "angle", "left_motor_speed", "right_motor_speed", "left_color_intensity"]
+    header = ["track_id", "angle", "left_motor_speed", "right_motor_speed", "left_color_intensity", "right_color_intensity"]
     if len(header) != len(data[0]):
         print("Warning: header length and data length don't match!")
 
