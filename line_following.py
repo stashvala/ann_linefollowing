@@ -11,10 +11,10 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
 
-    def __init__(self, hidden_layer_sizes=(10,), solver="adam", lr=0.001, epochs=20000, batch_size=256):
+    def __init__(self, hidden_layer_sizes=(15, ), solver="adam", lr=0.00055, epochs=20000, batch_size=32):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
                                 learning_rate='adaptive', shuffle=False, activation="logistic", max_iter=epochs,
-                                batch_size=batch_size, verbose=True)
+                                batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
 
         # Ev3 inputs
         self.gs = None
@@ -58,6 +58,7 @@ class LineFollowing:
         self.MLP.fit(X, y)
 
         pickle.dump(self.MLP, open(model_path, "wb"))
+        print("model saved to ", model_path)
 
     def run(self, model_path=None):
         if model_path is not None:
@@ -90,5 +91,5 @@ class LineFollowing:
 
 if __name__ == '__main__':
     model = LineFollowing()
-    model.train("data/electrical_tape.csv", "model/motors_added.p")
+    model.train("data/electrical_tape.csv", "model/validation.p")
     #model.run("model/mlp.p")
