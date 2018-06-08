@@ -1,5 +1,5 @@
 import pickle
-from time import sleep
+import time
 
 import numpy as np
 from sklearn.neural_network import MLPRegressor
@@ -10,6 +10,7 @@ class LineFollowing:
 
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
+    START_SPEED = 30
 
     def __init__(self, hidden_layer_sizes=(15, 25), solver="adam", lr=0.00005, epochs=1000, batch_size=32):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
@@ -58,15 +59,19 @@ class LineFollowing:
         self.MLP.fit(X, y)
 
         pickle.dump(self.MLP, open(model_path, "wb"))
-        print("model saved to ", model_path)
+        print("Model saved to ", model_path)
 
     def run(self, model_path=None):
         if model_path is not None:
             self.MLP = pickle.load(open(model_path, "rb"))
+            print("Model {} loaded".format(model_path))
         else:
             print("Warning: using unloaded model!")
 
         self.setup_ev3()
+
+        self.motor_left.run_forever(speed_sp=self.START_SPEED)
+        self.motor_right.run_forever(speed_sp=self.START_SPEED)
 
         while not self.btn.any():  # While no button is pressed.
             left_color_intensity = self.color_sensor_left.value() / 100.
@@ -77,19 +82,21 @@ class LineFollowing:
             X = np.array([curr_speed_left, curr_speed_right, left_color_intensity, right_color_intensity])
             print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
                                                                      left_color_intensity, right_color_intensity))
-
-            speed_left, speed_right = self.MLP.predict(X)
+            start_time = time.time()
+            speed_left, speed_right = self.MLP.predict(X.reshape(1, -1))[0]
+            print("prediction took {:3.3f}ms".format((time.time() - start_time) * 1000))
 
             print("output: {:3.2f}\t{:3.2f}".format(speed_left, speed_right))
 
             self.motor_left.run_forever(speed_sp=speed_left)
             self.motor_right.run_forever(speed_sp=speed_right)
-            sleep(0.01)
+            time.sleep(0.01)
 
         self.motor_left.stop(stop_action="hold")
         self.motor_right.stop(stop_action="hold")
 
 if __name__ == '__main__':
+    print("Program started")
     model = LineFollowing()
-    model.train("data/electrical_tape.csv", "model/val_multiple.p")
-    #model.run("model/mlp.p")
+    #model.train("data/electrical_tape.csv", "model/val_multiple.p")
+    model.run("model/val_multiple.p")
