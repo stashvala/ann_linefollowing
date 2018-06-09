@@ -26,6 +26,8 @@ btn = Button()
 
 # assert btn.connected, "Connect a button to sensor port 4"
 
+SLICE = 10
+
 
 def reset_gyro():
     # RESET GYRO
@@ -69,7 +71,8 @@ def read_track(id=0):
 
     Sound.beep().wait()
 
-    return track_data
+    assert(len(track_data) > SLICE * 2)
+    return track_data[SLICE:-SLICE]  # slice array to remove beginning and ending that might contain noise
 
 
 data = []
@@ -98,4 +101,5 @@ with open(file_name, 'w') as csv_file:
         str_line = ','.join(formatted) + '\n'
         csv_file.write(str_line)
 
+print("Total lines in csv = ", len(data))
 print("OUTPUT WRITTEN TO", file_name)
