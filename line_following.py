@@ -10,10 +10,10 @@ class LineFollowing:
 
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
-    START_SPEED = 30
+    CONST_SPEED = 75
 
-    def __init__(self, hidden_layer_sizes=(15, 25), solver="adam", lr=0.00005, epochs=1000, batch_size=32):
-        self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr,
+    def __init__(self, hidden_layer_sizes=(10, 5), solver="adam", lr=0.0001, epochs=1000, batch_size=32, alpha=0.001):
+        self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
                                 learning_rate='adaptive', shuffle=False, activation="relu", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
 
@@ -48,13 +48,23 @@ class LineFollowing:
         # BUTTON
         self.btn = Button()
 
+    @staticmethod
+    def motor_ratio(mot):
+        return ((mot[:, 0] + 1) / (mot[:, 1] + 1) - 1) / 1000
+
     def train(self, train_csv, model_path="model/mlp.p"):
+
         data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
 
         # shift color inputs so that previous motor speed is input for current color
-        X = np.hstack((data[:-1, self.MOTORS], data[1:, self.COLOR_SENSORS]))
-        X[:, [-2, -1]] /= 100  # normalize reflected color
-        y = data[1:, self.MOTORS]  # shift motor outputs
+        x_motors = data[:-1, self.MOTORS]
+        ratio = self.motor_ratio(x_motors)
+
+        x_color = data[1:, self.COLOR_SENSORS] / 100  # normalize reflected color
+        X = np.hstack((ratio[:, None], x_color))
+
+        y_motors = data[1:, self.MOTORS]  # shift motor outputs
+        y = self.motor_ratio(y_motors)
 
         self.MLP.fit(X, y)
 
@@ -70,8 +80,8 @@ class LineFollowing:
 
         self.setup_ev3()
 
-        self.motor_left.run_forever(speed_sp=self.START_SPEED)
-        self.motor_right.run_forever(speed_sp=self.START_SPEED)
+        self.motor_left.run_forever(speed_sp=self.CONST_SPEED)
+        self.motor_right.run_forever(speed_sp=self.CONST_SPEED)
 
         while not self.btn.any():  # While no button is pressed.
             left_color_intensity = self.color_sensor_left.value() / 100.
@@ -79,16 +89,16 @@ class LineFollowing:
 
             # TODO: maybe remember prev predicted speed and use that
             curr_speed_left, curr_speed_right = self.motor_left.speed, self.motor_right.speed
-            X = np.array([curr_speed_left, curr_speed_right, left_color_intensity, right_color_intensity])
-            print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
+            curr_speed_ratio = ((curr_speed_left + 1) / (curr_speed_right + 1) - 1) / 1000
+            X = np.array([curr_speed_ratio, left_color_intensity, right_color_intensity])
+            print("input: {:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_ratio,
                                                                      left_color_intensity, right_color_intensity))
             start_time = time.time()
-            speed_left, speed_right = self.MLP.predict(X.reshape(1, -1))[0]
-            print("prediction took {:3.3f}ms".format((time.time() - start_time) * 1000))
+            speed_ratio = self.MLP.predict(X.reshape(1, -1))[0]
+            speed_right = self.CONST_SPEED * speed_ratio
 
-            print("output: {:3.2f}\t{:3.2f}".format(speed_left, speed_right))
+            print("output: {:1.2f}, r_speed {:3.2f}, prediction took {:3.3f}ms".format(speed_ratio, speed_right, (time.time() - start_time) * 1000))
 
-            self.motor_left.run_forever(speed_sp=speed_left)
             self.motor_right.run_forever(speed_sp=speed_right)
             time.sleep(0.01)
 
@@ -98,5 +108,5 @@ class LineFollowing:
 if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
-    #model.train("data/electrical_tape.csv", "model/val_multiple.p")
-    model.run("model/val_multiple.p")
+    # model.train("data/two_tracks.csv", "model/motor_ratio2.p")
+    model.run("model/motor_ratio2.p")
