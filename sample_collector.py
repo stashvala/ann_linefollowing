@@ -1,6 +1,5 @@
 from ev3dev.ev3 import *
 from time import time, sleep
-import csv
 
 # GYRO SENSOR
 gs = GyroSensor()
@@ -9,7 +8,7 @@ gs.mode = 'GYRO-ANG'
 
 # MOTORS
 motor_left = LargeMotor('outB')
-motor_right = LargeMotor('outD')
+motor_right = LargeMotor('outC')
 
 # COLOR SENSOR
 color_sensor_left = ColorSensor('in1')
@@ -75,31 +74,44 @@ def read_track(id=0):
     return track_data[SLICE:-SLICE]  # slice array to remove beginning and ending that might contain noise
 
 
-data = []
-index = 0
+def create_csv(file_name, data, header=None):
+    if header is None:
+        header = ["left_motor_speed", "right_motor_speed", "left_color_intensity", "right_color_intensity"]
 
-# RECORD DATA
-while True:
-    print("PRESS A BUTTON TO RECORD NEW TRACK")
-    x = read_track(index)
-    data.extend(x)
-    i = input('ONE MORE? [y/n] ')
-    if i != 'y':
-        break
-    index += 1
-
-# WRITE TO CSV
-file_name = "data/" + input('CSV file: ') + '.csv'
-with open(file_name, 'w') as csv_file:
-    header = ["track_id", "angle", "left_motor_speed", "right_motor_speed", "left_color_intensity", "right_color_intensity"]
     if len(header) != len(data[0]):
         print("Warning: header length and data length don't match!")
 
-    csv_file.write(",".join(header) + '\n')
-    for line in data:
-        formatted = ["{:3.2f}".format(i) if isinstance(i, float) else str(i) for i in line]
-        str_line = ','.join(formatted) + '\n'
-        csv_file.write(str_line)
+    with open(file_name, 'w') as csv_file:
+        csv_file.write(",".join(header) + '\n')
+        for line in data:
+            formatted = ["{:3.2f}".format(i) if isinstance(i, float) else str(i) for i in line]
+            str_line = ','.join(formatted) + '\n'
+            csv_file.write(str_line)
 
-print("Total lines in csv = ", len(data))
-print("OUTPUT WRITTEN TO", file_name)
+    print("Total lines in csv = ", len(data))
+    print("OUTPUT WRITTEN TO", file_name)
+
+
+def record_data():
+    data = []
+    index = 0
+
+    while True:
+        print("PRESS A BUTTON TO RECORD NEW TRACK")
+        x = read_track(index)
+        data.extend(x)
+        i = input('ONE MORE? [y/n] ')
+        if i != 'y':
+            break
+        index += 1
+
+    file_name = "data/" + input('CSV file: ') + '.csv'
+    header = ["track_id", "angle", "left_motor_speed", "right_motor_speed", "left_color_intensity",
+              "right_color_intensity"]
+
+    create_csv(file_name, data, header)
+
+
+if __name__ == '__main__':
+    record_data()
+
