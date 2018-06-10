@@ -5,16 +5,17 @@ import numpy as np
 from sklearn.neural_network import MLPRegressor
 from ev3dev.ev3 import *
 
+from sample_collector import create_csv
 
 class LineFollowing:
 
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
     CONST_SPEED = 75
-    L_MOTOR_BASE = 511.0
-    R_MOTOR_BASE = 632.0
+    L_MOTOR_BASE = 241.0
+    R_MOTOR_BASE = 291.0
 
-    def __init__(self, hidden_layer_sizes=(10, 5), solver="adam", lr=0.0001, epochs=1000, batch_size=32, alpha=0.001):
+    def __init__(self, hidden_layer_sizes=(10, 5), solver="adam", lr=0.00005, epochs=1000, batch_size=32, alpha=0.01):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
                                 learning_rate='adaptive', shuffle=False, activation="relu", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
@@ -85,15 +86,17 @@ class LineFollowing:
         pickle.dump(self.MLP, open(model_path, "wb"))
         print("Model saved to ", model_path)
 
-    def run(self, model_path=None):
+    def run(self, model_path=None, out_log_file=None):
         if model_path is not None:
             self.MLP = pickle.load(open(model_path, "rb"))
             print("Model {} loaded".format(model_path))
         else:
             print("Warning: using unloaded model!")
 
-        if not self.is_ev3_set:
+        if not self.is_ev3_set():
             self.setup_ev3()
+
+        out_log = []
 
         self.motor_left.run_forever(speed_sp=self.CONST_SPEED)
         self.motor_right.run_forever(speed_sp=self.CONST_SPEED)
@@ -116,16 +119,27 @@ class LineFollowing:
             self.motor_left.run_forever(speed_sp=speed_left)
             self.motor_right.run_forever(speed_sp=speed_right)
 
+            if out_log_file is not None:
+                out_log.append((speed_left, speed_right, left_color_intensity * 100, right_color_intensity * 100))
+
         self.motor_left.stop(stop_action="brake")
         self.motor_right.stop(stop_action="brake")
 
         print("Line following finished!")
 
+        if out_log_file is not None:
+            create_csv(out_log_file, out_log)
+
 if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
 
-    model_path = "model/one_track_fix.p"
+    model_path = "model/one_track_better.p"
 
-    model.train("data/one_track_fix.csv", model_path)
-    # model.run(model_path)
+    # model.train("data/one_track_better.csv", model_path)
+
+    while True:
+        model.run(model_path, "results/output.csv")
+        run_again = input("Run again? [y/n]")
+        if run_again != 'y':
+            break
