@@ -11,6 +11,8 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
     CONST_SPEED = 75
+    L_MOTOR_BASE = 540.0
+    R_MOTOR_BASE = 596.0
 
     def __init__(self, hidden_layer_sizes=(10, 5), solver="adam", lr=0.0001, epochs=1000, batch_size=32, alpha=0.001):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
@@ -33,7 +35,7 @@ class LineFollowing:
 
         # MOTORS
         self.motor_left = LargeMotor('outB')
-        self.motor_right = LargeMotor('outD')
+        self.motor_right = LargeMotor('outC')
 
         # COLOR SENSOR
         self.color_sensor_left = ColorSensor('in1')
@@ -58,13 +60,19 @@ class LineFollowing:
 
         # shift color inputs so that previous motor speed is input for current color
         x_motors = data[:-1, self.MOTORS]
-        ratio = self.motor_ratio(x_motors)
+        max_l_motor = np.max(x_motors[:, 0])
+        max_r_motor = np.max(x_motors[:, 1])
+        x_motors[:, 0] /= max_l_motor
+        x_motors[:, 1] /= max_r_motor
+        print("Max L motor = {}, Max R motor = {}".format(max_l_motor, max_r_motor))
 
         x_color = data[1:, self.COLOR_SENSORS] / 100  # normalize reflected color
-        X = np.hstack((ratio[:, None], x_color))
+        X = np.hstack((x_motors, x_color))
 
         y_motors = data[1:, self.MOTORS]  # shift motor outputs
-        y = self.motor_ratio(y_motors)
+        y_motors[:, 0] /= max_l_motor
+        y_motors[:, 1] /= max_r_motor
+        y = y_motors  # shift motor outputs
 
         self.MLP.fit(X, y)
 
@@ -88,25 +96,28 @@ class LineFollowing:
             right_color_intensity = self.color_sensor_right.value() / 100.
 
             # TODO: maybe remember prev predicted speed and use that
-            curr_speed_left, curr_speed_right = self.motor_left.speed, self.motor_right.speed
-            curr_speed_ratio = ((curr_speed_left + 1) / (curr_speed_right + 1) - 1) / 1000
-            X = np.array([curr_speed_ratio, left_color_intensity, right_color_intensity])
-            print("input: {:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_ratio,
+            curr_speed_left, curr_speed_right = self.motor_left.speed / self.L_MOTOR_BASE, self.motor_right.speed / self.R_MOTOR_BASE
+            X = np.array([curr_speed_left, curr_speed_right, left_color_intensity, right_color_intensity])
+            print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
                                                                      left_color_intensity, right_color_intensity))
             start_time = time.time()
-            speed_ratio = self.MLP.predict(X.reshape(1, -1))[0]
-            speed_right = self.CONST_SPEED * speed_ratio
+            speed_left, speed_right = self.MLP.predict(X.reshape(1, -1))[0]
+            speed_left, speed_right = speed_left * self.L_MOTOR_BASE, speed_right * self.R_MOTOR_BASE
 
-            print("output: {:1.2f}, r_speed {:3.2f}, prediction took {:3.3f}ms".format(speed_ratio, speed_right, (time.time() - start_time) * 1000))
+            print("output: {:3.2f}\t{:3.2f}, prediction took {:3.3f}ms".format(speed_left, speed_right, (time.time() - start_time) * 1000))
 
+            self.motor_left.run_forever(speed_sp=speed_left)
             self.motor_right.run_forever(speed_sp=speed_right)
             time.sleep(0.01)
 
-        self.motor_left.stop(stop_action="hold")
-        self.motor_right.stop(stop_action="hold")
+        self.motor_left.stop(stop_action="brake")
+        self.motor_right.stop(stop_action="brake")
 
 if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
-    # model.train("data/two_tracks.csv", "model/motor_ratio2.p")
-    model.run("model/motor_ratio2.p")
+
+    model_path = "model/double_straight_line_relu.p"
+
+    # model.train("data/double_straight_line.csv", model_path)
+    model.run(model_path)
