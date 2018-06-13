@@ -5,6 +5,7 @@ import numpy as np
 from sklearn.neural_network import MLPRegressor
 
 from sample_collector import SampleCollector
+from sklearn.metrics import mean_absolute_error
 from robot import Robot
 
 
@@ -13,10 +14,10 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
     CONST_SPEED = 75
-    L_MOTOR_BASE = 291.0
-    R_MOTOR_BASE = 291.0
+    L_MOTOR_BASE = 261.0
+    R_MOTOR_BASE = 261.0
 
-    def __init__(self, hidden_layer_sizes=(10,), solver="adam", lr=0.0001, epochs=100, batch_size=32, alpha=0.01):
+    def __init__(self, hidden_layer_sizes=(6,), solver="adam", lr=0.00005, epochs=100, batch_size=32, alpha=0.01):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
                                 learning_rate='adaptive', shuffle=False, activation="relu", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
@@ -29,14 +30,14 @@ class LineFollowing:
 
     def train(self, train_csv, model_path="model/mlp.p"):
 
-        data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
+        train_data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
 
         # shift color inputs so that previous motor speed is input for current color
-        x_motors = data[:-1, self.MOTORS]
-        x_color = data[1:, self.COLOR_SENSORS] / 100  # normalize reflected color
+        x_motors = train_data[:-1, self.MOTORS]
+        x_color = train_data[1:, self.COLOR_SENSORS] / 100  # normalize reflected color
         X = np.hstack((x_motors, x_color))
 
-        y_motors = data[1:, self.MOTORS]  # shift motor outputs
+        y_motors = train_data[1:, self.MOTORS]  # shift motor outputs
         y = y_motors  # shift motor outputs
 
         # mirror data
@@ -69,7 +70,7 @@ class LineFollowing:
         if not self.robot.is_ev3_set():
             self.robot.setup_ev3()
 
-    def run(self, model_path=None, out_log_file=None):
+    def run(self, model_path=None, out_log_file=None, verbose=False):
         if model_path is not None:
             self.MLP = pickle.load(open(model_path, "rb"))
             print("Model {} loaded".format(model_path))
@@ -89,14 +90,16 @@ class LineFollowing:
             curr_speed_left, curr_speed_right = self.robot.motor_left.speed / self.L_MOTOR_BASE, \
                                                 self.robot.motor_right.speed / self.R_MOTOR_BASE
             X = np.array([curr_speed_left, curr_speed_right, left_color_intensity, right_color_intensity])
-            print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
-                                                                     left_color_intensity, right_color_intensity))
+            if verbose:
+                print("input: {:3.2f}\t{:3.2f}\t{:1.3f}\t{:1.3f}".format(curr_speed_left, curr_speed_right,
+                                                                         left_color_intensity, right_color_intensity))
             start_time = time.time()
             speed_left, speed_right = self.MLP.predict(X.reshape(1, -1))[0]
             speed_left, speed_right = speed_left * self.L_MOTOR_BASE, speed_right * self.R_MOTOR_BASE
 
-            print("output: {:3.2f}\t{:3.2f}, prediction took {:3.3f}ms".format(speed_left, speed_right,
-                                                                               (time.time() - start_time) * 1000))
+            if verbose:
+                print("output: {:3.2f}\t{:3.2f}, prediction took {:3.3f}ms".format(speed_left, speed_right,
+                                                                                   (time.time() - start_time) * 1000))
 
             self.robot.drive(speed_left, speed_right)
 
@@ -104,22 +107,51 @@ class LineFollowing:
                 out_log.append((speed_left, speed_right, left_color_intensity * 100, right_color_intensity * 100))
 
         self.robot.stop()
-
+        self.robot.beep()
         print("Line following finished!")
 
         if out_log_file is not None:
             SampleCollector.create_csv(out_log_file, out_log)
 
+    def test(self, test_csv, model_path=None):
+        if model_path is not None:
+            self.MLP = pickle.load(open(model_path, "rb"))
+            print("Model {} loaded".format(model_path))
+        else:
+            print("Warning: using unloaded model!")
+
+        test_data = np.genfromtxt(test_csv, delimiter=',', skip_header=1)
+
+        x_motors = test_data[:-1, self.MOTORS]
+        max_l_motor = np.max(x_motors[:, 0])
+        max_r_motor = np.max(x_motors[:, 1])
+        x_motors[:, 0] /= max_l_motor
+        x_motors[:, 1] /= max_r_motor
+
+        x_color = test_data[1:, self.COLOR_SENSORS] / 100  # normalize reflected color
+        X = np.hstack((x_motors, x_color))
+
+        y_pred = self.MLP.predict(X)
+        y_pred[:, 0] *= max_l_motor
+        y_pred[:, 1] *= max_r_motor
+
+        y_true = test_data[1:, self.MOTORS]
+        mae = mean_absolute_error(y_true, y_pred)
+        print("Mean Absolute Error = {:3.2f}".format(mae))
+
+
 if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
 
-    model_path = "model/one_track_mirror.p"
+    model_path = "model/without_gyro.p"
 
-    # model.train("data/one_track_better.csv", model_path)
+    # model.train("data/without_gyro.csv", model_path)
+    # model.test("data/new_track.csv", model_path)
 
     while True:
-        model.run(model_path, "results/output.csv")
+        model.run(model_path)
+
         run_again = input("Run again? [y/n]")
         if run_again != 'y':
             break

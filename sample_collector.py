@@ -23,7 +23,8 @@ class SampleCollector:
 
         track_data = []
         while not self.robot.btn.any():  # While no button is pressed.
-            angle = self.robot.gyroscope_value(win_size)
+            # angle = self.robot.gyroscope_value(win_size)
+            angle = 0  # try to increase number of samples per second by ignoring gyro value
 
             left_motor_speed = self.robot.motor_left.speed
             right_motor_speed = self.robot.motor_right.speed
