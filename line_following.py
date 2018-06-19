@@ -15,7 +15,7 @@ class LineFollowing:
     COLOR_SENSORS = [4, 5]
     CONST_SPEED = 75
     L_MOTOR_BASE = 275.0
-    R_MOTOR_BASE = 255.0
+    R_MOTOR_BASE = 275.0
 
     def __init__(self, hidden_layer_sizes=(8,), solver="adam", lr=0.0001, epochs=100, batch_size=32, alpha=0.00001):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
@@ -159,10 +159,10 @@ if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
 
-    model_path = "model/logistic.p"
+    model_path = "model/example_model.p"
 
-    model.train("data/p4_new.csv", model_path)
-    model.test("data/new_track.csv", model_path)
+    model.train("data/train_example.csv", model_path)
+    model.test("data/test_example.csv", model_path)
 
     while True:
         model.run(model_path)

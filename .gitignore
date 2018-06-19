@@ -7,3 +7,5 @@ model/
 env/
 
 results/
+
+__pycache__/
