@@ -62,7 +62,10 @@ class LineFollowing:
         max_r_motor = np.max(X[:, 1])
         X[:, 0] /= max_l_motor
         X[:, 1] /= max_r_motor
+
         print("Max L motor = {}, Max R motor = {}".format(max_l_motor, max_r_motor))
+        self.L_MOTOR_BASE = max_l_motor
+        self.R_MOTOR_BASE = max_r_motor
 
         y[:, 0] /= max_l_motor
         y[:, 1] /= max_r_motor
