@@ -14,12 +14,12 @@ class LineFollowing:
     MOTORS = [2, 3]
     COLOR_SENSORS = [4, 5]
     CONST_SPEED = 75
-    L_MOTOR_BASE = 299.0
-    R_MOTOR_BASE = 289.0
+    L_MOTOR_BASE = 275.0
+    R_MOTOR_BASE = 255.0
 
-    def __init__(self, hidden_layer_sizes=(8,), solver="adam", lr=0.00005, epochs=100, batch_size=64, alpha=0.001):
+    def __init__(self, hidden_layer_sizes=(8,), solver="adam", lr=0.0001, epochs=100, batch_size=32, alpha=0.00001):
         self.MLP = MLPRegressor(hidden_layer_sizes, solver=solver, learning_rate_init=lr, alpha=alpha,
-                                learning_rate='adaptive', shuffle=True, activation="relu", max_iter=epochs,
+                                learning_rate='adaptive', shuffle=True, activation="logistic", max_iter=epochs,
                                 batch_size=batch_size, validation_fraction=0.1, early_stopping=True, verbose=True)
 
         self.robot = None
@@ -30,7 +30,7 @@ class LineFollowing:
         sign[sign == 0] = -1
         return sign * (1 - (mot[:, 0] + 1) / (mot[:, 1] + 1))
 
-    def train(self, train_csv, model_path="model/mlp.p"):
+    def train(self, train_csv, model_path="model/mlp.p", mirror_data=True):
 
         train_data = np.genfromtxt(train_csv, delimiter=',', skip_header=1)
 
@@ -47,14 +47,16 @@ class LineFollowing:
         X = np.delete(X, ind, axis=0)
         y = np.delete(y, ind, axis=0)
 
-        # mirror data
-        # X_mirror = X.copy()
-        # X_mirror[:, [0, 1]] = X[:, [1, 0]]
-        # X_mirror[:, [2, 3]] = X[:, [3, 2]]
-        # y_mirror = y.copy()
-        # y_mirror[:, [0, 1]] = y_mirror[:, [1, 0]]
-        #
-        # X = np.vstack((X, X_mirror))
+        if mirror_data:
+            X_mirror = X.copy()
+            X_mirror[:, [0, 1]] = X[:, [1, 0]]
+            X_mirror[:, [2, 3]] = X[:, [3, 2]]
+
+            y_mirror = y.copy()
+            y_mirror[:, [0, 1]] = y_mirror[:, [1, 0]]
+
+            X = np.vstack((X, X_mirror))
+            y = np.vstack((y, y_mirror))
 
         max_l_motor = np.max(X[:, 0])
         max_r_motor = np.max(X[:, 1])
@@ -62,7 +64,6 @@ class LineFollowing:
         X[:, 1] /= max_r_motor
         print("Max L motor = {}, Max R motor = {}".format(max_l_motor, max_r_motor))
 
-        # y = np.vstack((y, y_mirror))
         y[:, 0] /= max_l_motor
         y[:, 1] /= max_r_motor
 
@@ -93,7 +94,7 @@ class LineFollowing:
 
         print("Line following started")
         print("Using base speeds: left motor {:3.2f}, right motor {:3.2f}".format(self.L_MOTOR_BASE, self.R_MOTOR_BASE))
-        while not self.robot.btn.any():  # While no button is pressed.
+        while not self.robot.btn.any():
             left_color_intensity = self.robot.color_sensor_left.value() / 100.
             right_color_intensity = self.robot.color_sensor_right.value() / 100.
 
@@ -155,10 +156,10 @@ if __name__ == '__main__':
     print("Program started")
     model = LineFollowing()
 
-    model_path = "model/remove_zeros.p"
+    model_path = "model/logistic.p"
 
-    # model.train("data/without_gyro.csv", model_path)
-    # model.test("data/new_track.csv", model_path)
+    model.train("data/p4_new.csv", model_path)
+    model.test("data/new_track.csv", model_path)
 
     while True:
         model.run(model_path)
